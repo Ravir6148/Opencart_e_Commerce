@@ -1,0 +1,1 @@
+pytest -v -s --capture=tee-sys .\testCases\ -m "sanity or regression"

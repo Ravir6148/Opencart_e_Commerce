@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>01-08-2025 23-45-06.html</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>01-08-2025 23-45-06.html</h1>
+    <p>Report generated on 01-Aug-2025 at 23:45:14 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Base URL</td>
+        <td></td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.6.0", "pytest": "8.4.1"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-11-10.0.26100-SP0</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.12.5</td></tr></table>
+    <h2>Summary</h2>
+    <p>2 tests ran in 7.74 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">2 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_001_AccountRegistration.py::Test_001_AccountRegistration::test_accResTesting</td>
+          <td class="col-duration">4.15</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>send: b&#x27;GET /chrome-for-testing/latest-patch-versions-per-build.json HTTP/1.1\r\nHost: googlechromelabs.github.io\r\nUser-Agent: python-requests/2.32.3\r\nAccept-Encoding: gzip, deflate\r\nAccept: */*\r\nConnection: keep-alive\r\n\r\n&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Connection: keep-alive
+header: Content-Length: 12390
+header: Server: GitHub.com
+header: Content-Type: application/json; charset=utf-8
+header: x-origin-cache: HIT
+header: Last-Modified: Fri, 01 Aug 2025 18:12:19 GMT
+header: Access-Control-Allow-Origin: *
+header: Strict-Transport-Security: max-age=31556952
+header: ETag: W/&quot;688d0383-13906&quot;
+header: expires: Fri, 01 Aug 2025 18:22:20 GMT
+header: Cache-Control: max-age=600
+header: Content-Encoding: gzip
+header: x-proxy-cache: HIT
+header: X-GitHub-Request-Id: 2950:201CC4:46D69:5093C:688D0383
+header: Accept-Ranges: bytes
+header: Date: Fri, 01 Aug 2025 18:15:07 GMT
+header: Via: 1.1 varnish
+header: Age: 134
+header: X-Served-By: cache-maa10231-MAA
+header: X-Cache: HIT
+header: X-Cache-Hits: 19
+header: X-Timer: S1754072107.374162,VS0,VE0
+header: Vary: Accept-Encoding
+header: X-Fastly-Request-ID: 5f1f1ca15022a6de8548c6a889df6e5d0dc20c98
+send: b&#x27;GET /chrome-for-testing/latest-patch-versions-per-build.json HTTP/1.1\r\nHost: googlechromelabs.github.io\r\nUser-Agent: python-requests/2.32.3\r\nAccept-Encoding: gzip, deflate\r\nAccept: */*\r\nConnection: keep-alive\r\n\r\n&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Connection: keep-alive
+header: Content-Length: 12390
+header: Server: GitHub.com
+header: Content-Type: application/json; charset=utf-8
+header: x-origin-cache: HIT
+header: Last-Modified: Fri, 01 Aug 2025 18:12:19 GMT
+header: Access-Control-Allow-Origin: *
+header: Strict-Transport-Security: max-age=31556952
+header: ETag: W/&quot;688d0383-13906&quot;
+header: expires: Fri, 01 Aug 2025 18:22:20 GMT
+header: Cache-Control: max-age=600
+header: Content-Encoding: gzip
+header: x-proxy-cache: HIT
+header: X-GitHub-Request-Id: 2950:201CC4:46D69:5093C:688D0383
+header: Accept-Ranges: bytes
+header: Date: Fri, 01 Aug 2025 18:15:07 GMT
+header: Via: 1.1 varnish
+header: Age: 134
+header: X-Served-By: cache-maa10230-MAA
+header: X-Cache: HIT
+header: X-Cache-Hits: 27
+header: X-Timer: S1754072107.445983,VS0,VE0
+header: Vary: Accept-Encoding
+header: X-Fastly-Request-ID: 874953d11f53a9b8663d16b8b150d43a707c540c
+send: b&#x27;POST /session HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 164\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;capabilities&quot;: {&quot;firstMatch&quot;: [{}], &quot;alwaysMatch&quot;: {&quot;browserName&quot;: &quot;chrome&quot;, &quot;pageLoadStrategy&quot;: &quot;normal&quot;, &quot;goog:chromeOptions&quot;: {&quot;extensions&quot;: [], &quot;args&quot;: []}}}}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 884
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+<br/> ------------------------------Captured stdout call------------------------------ <br/>send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/url HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 36\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;url&quot;: &quot;https://awesomeqa.com/ui/&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/window/maximize HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 51
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 55\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//a[@title=\&#x27;My Account\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 125
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.335D89729D5CE9120B581120418CE797.e.8/click HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 64\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//a[normalize-space()=\&#x27;Register\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.335D89729D5CE9120B581120418CE797.e.82/click HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 61\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@id=\&#x27;input-firstname\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.0A13017BE4C6FABD3CF7FECF847C3716.e.88/value HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 89\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;text&quot;: &quot;Ravi Ranjan&quot;, &quot;value&quot;: [&quot;R&quot;, &quot;a&quot;, &quot;v&quot;, &quot;i&quot;, &quot; &quot;, &quot;R&quot;, &quot;a&quot;, &quot;n&quot;, &quot;j&quot;, &quot;a&quot;, &quot;n&quot;]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 60\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@id=\&#x27;input-lastname\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.0A13017BE4C6FABD3CF7FECF847C3716.e.89/value HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 59\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;text&quot;: &quot;Sharma&quot;, &quot;value&quot;: [&quot;S&quot;, &quot;h&quot;, &quot;a&quot;, &quot;r&quot;, &quot;m&quot;, &quot;a&quot;]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 57\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@id=\&#x27;input-email\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.0A13017BE4C6FABD3CF7FECF847C3716.e.90/value HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 113\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;text&quot;: &quot;nlucw@gmail.com&quot;, &quot;value&quot;: [&quot;n&quot;, &quot;l&quot;, &quot;u&quot;, &quot;c&quot;, &quot;w&quot;, &quot;@&quot;, &quot;g&quot;, &quot;m&quot;, &quot;a&quot;, &quot;i&quot;, &quot;l&quot;, &quot;.&quot;, &quot;c&quot;, &quot;o&quot;, &quot;m&quot;]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 61\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@id=\&#x27;input-telephone\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.0A13017BE4C6FABD3CF7FECF847C3716.e.91/value HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 83\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;text&quot;: &quot;9855632170&quot;, &quot;value&quot;: [&quot;9&quot;, &quot;8&quot;, &quot;5&quot;, &quot;5&quot;, &quot;6&quot;, &quot;3&quot;, &quot;2&quot;, &quot;1&quot;, &quot;7&quot;, &quot;0&quot;]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 60\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@id=\&#x27;input-password\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.0A13017BE4C6FABD3CF7FECF847C3716.e.92/value HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 143\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;text&quot;: &quot;hyjhkjiykk635521!@11&quot;, &quot;value&quot;: [&quot;h&quot;, &quot;y&quot;, &quot;j&quot;, &quot;h&quot;, &quot;k&quot;, &quot;j&quot;, &quot;i&quot;, &quot;y&quot;, &quot;k&quot;, &quot;k&quot;, &quot;6&quot;, &quot;3&quot;, &quot;5&quot;, &quot;5&quot;, &quot;2&quot;, &quot;1&quot;, &quot;!&quot;, &quot;@&quot;, &quot;1&quot;, &quot;1&quot;]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 59\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@id=\&#x27;input-confirm\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.0A13017BE4C6FABD3CF7FECF847C3716.e.93/value HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 143\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;text&quot;: &quot;hyjhkjiykk635521!@11&quot;, &quot;value&quot;: [&quot;h&quot;, &quot;y&quot;, &quot;j&quot;, &quot;h&quot;, &quot;k&quot;, &quot;j&quot;, &quot;i&quot;, &quot;y&quot;, &quot;k&quot;, &quot;k&quot;, &quot;6&quot;, &quot;3&quot;, &quot;5&quot;, &quot;5&quot;, &quot;2&quot;, &quot;1&quot;, &quot;!&quot;, &quot;@&quot;, &quot;1&quot;, &quot;1&quot;]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 53\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@name=\&#x27;agree\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.0A13017BE4C6FABD3CF7FECF847C3716.e.96/click HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 57\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@value=\&#x27;Continue\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 127
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.0A13017BE4C6FABD3CF7FECF847C3716.e.109/click HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/7b2243c4bb18a4aa58bd64bc10defc52/element HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nContent-Length: 87\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//h1[normalize-space()=\&#x27;Your Account Has Been Created!\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 127
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;GET /session/7b2243c4bb18a4aa58bd64bc10defc52/element/f.162250BA63EE24769EE3BCA41C73CC91.d.7E608DBC9E62E773B07994DA4343293D.e.125/text HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 42
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;DELETE /session/7b2243c4bb18a4aa58bd64bc10defc52/window HTTP/1.1\r\nHost: localhost:61849\r\nAccept-Encoding: identity\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 12
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_002_Login.py::Test_002_Login::test_login</td>
+          <td class="col-duration">3.28</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>send: b&#x27;GET /chrome-for-testing/latest-patch-versions-per-build.json HTTP/1.1\r\nHost: googlechromelabs.github.io\r\nUser-Agent: python-requests/2.32.3\r\nAccept-Encoding: gzip, deflate\r\nAccept: */*\r\nConnection: keep-alive\r\n\r\n&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Connection: keep-alive
+header: Content-Length: 12390
+header: Server: GitHub.com
+header: Content-Type: application/json; charset=utf-8
+header: x-origin-cache: HIT
+header: Last-Modified: Fri, 01 Aug 2025 18:12:19 GMT
+header: Access-Control-Allow-Origin: *
+header: Strict-Transport-Security: max-age=31556952
+header: ETag: W/&quot;688d0383-13906&quot;
+header: expires: Fri, 01 Aug 2025 18:22:20 GMT
+header: Cache-Control: max-age=600
+header: Content-Encoding: gzip
+header: x-proxy-cache: HIT
+header: X-GitHub-Request-Id: 2950:201CC4:46D69:5093C:688D0383
+header: Accept-Ranges: bytes
+header: Date: Fri, 01 Aug 2025 18:15:11 GMT
+header: Via: 1.1 varnish
+header: Age: 139
+header: X-Served-By: cache-maa10242-MAA
+header: X-Cache: HIT
+header: X-Cache-Hits: 16
+header: X-Timer: S1754072112.510277,VS0,VE1
+header: Vary: Accept-Encoding
+header: X-Fastly-Request-ID: 9fba3547534a9c13aa66061dd1cfa8d6d231a7f5
+send: b&#x27;GET /chrome-for-testing/latest-patch-versions-per-build.json HTTP/1.1\r\nHost: googlechromelabs.github.io\r\nUser-Agent: python-requests/2.32.3\r\nAccept-Encoding: gzip, deflate\r\nAccept: */*\r\nConnection: keep-alive\r\n\r\n&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Connection: keep-alive
+header: Content-Length: 12390
+header: Server: GitHub.com
+header: Content-Type: application/json; charset=utf-8
+header: x-origin-cache: HIT
+header: Last-Modified: Fri, 01 Aug 2025 18:12:19 GMT
+header: Access-Control-Allow-Origin: *
+header: Strict-Transport-Security: max-age=31556952
+header: ETag: W/&quot;688d0383-13906&quot;
+header: expires: Fri, 01 Aug 2025 18:22:20 GMT
+header: Cache-Control: max-age=600
+header: Content-Encoding: gzip
+header: x-proxy-cache: HIT
+header: X-GitHub-Request-Id: 2950:201CC4:46D69:5093C:688D0383
+header: Accept-Ranges: bytes
+header: Date: Fri, 01 Aug 2025 18:15:11 GMT
+header: Via: 1.1 varnish
+header: Age: 139
+header: X-Served-By: cache-maa10248-MAA
+header: X-Cache: HIT
+header: X-Cache-Hits: 24
+header: X-Timer: S1754072112.552446,VS0,VE1
+header: Vary: Accept-Encoding
+header: X-Fastly-Request-ID: eafde5c3a40ee4c87db7d05b82e2d65d70461609
+send: b&#x27;POST /session HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 164\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;capabilities&quot;: {&quot;firstMatch&quot;: [{}], &quot;alwaysMatch&quot;: {&quot;browserName&quot;: &quot;chrome&quot;, &quot;pageLoadStrategy&quot;: &quot;normal&quot;, &quot;goog:chromeOptions&quot;: {&quot;extensions&quot;: [], &quot;args&quot;: []}}}}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 883
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+<br/> ------------------------------Captured stdout call------------------------------ <br/>send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/url HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 36\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;url&quot;: &quot;https://awesomeqa.com/ui/&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/window/maximize HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 51
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 55\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//a[@title=\&#x27;My Account\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element/f.AF8AA8B0F479939562D4492CCD0F468D.d.1D3D488B4527735F836364778BEFC200.e.11/click HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 61\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//a[normalize-space()=\&#x27;Login\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element/f.AF8AA8B0F479939562D4492CCD0F468D.d.1D3D488B4527735F836364778BEFC200.e.65/click HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 50\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;css selector&quot;, &quot;value&quot;: &quot;#input-email&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element/f.AF8AA8B0F479939562D4492CCD0F468D.d.F35F4C8291EAE4EDDDE10FD6035FBA78.e.70/value HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 149\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;text&quot;: &quot;ravhhhhu123@gmail.com&quot;, &quot;value&quot;: [&quot;r&quot;, &quot;a&quot;, &quot;v&quot;, &quot;h&quot;, &quot;h&quot;, &quot;h&quot;, &quot;h&quot;, &quot;u&quot;, &quot;1&quot;, &quot;2&quot;, &quot;3&quot;, &quot;@&quot;, &quot;g&quot;, &quot;m&quot;, &quot;a&quot;, &quot;i&quot;, &quot;l&quot;, &quot;.&quot;, &quot;c&quot;, &quot;o&quot;, &quot;m&quot;]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 53\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;css selector&quot;, &quot;value&quot;: &quot;#input-password&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element/f.AF8AA8B0F479939562D4492CCD0F468D.d.F35F4C8291EAE4EDDDE10FD6035FBA78.e.71/value HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 77\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;text&quot;: &quot;123654789&quot;, &quot;value&quot;: [&quot;1&quot;, &quot;2&quot;, &quot;3&quot;, &quot;6&quot;, &quot;5&quot;, &quot;4&quot;, &quot;7&quot;, &quot;8&quot;, &quot;9&quot;]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 54\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//input[@value=\&#x27;Login\&#x27;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element/f.AF8AA8B0F479939562D4492CCD0F468D.d.F35F4C8291EAE4EDDDE10FD6035FBA78.e.79/click HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/element HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 69\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;using&quot;: &quot;xpath&quot;, &quot;value&quot;: &quot;//h2[normalize-space()=\\&quot;My Account\\&quot;]&quot;}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 126
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;POST /session/25ed6229b582f8271f4e4e2b7556748c/execute/sync HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nContent-Length: 17997\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+send: b&#x27;{&quot;script&quot;: &quot;/* isDisplayed */return (function(){return (function(){var g=this||self;\\nfunction aa(a){var b=typeof a;if(\\&quot;object\\&quot;==b)if(a){if(a instanceof Array)return\\&quot;array\\&quot;;if(a instanceof Object)return b;var c=Object.prototype.toString.call(a);if(\\&quot;[object Window]\\&quot;==c)return\\&quot;object\\&quot;;if(\\&quot;[object Array]\\&quot;==c||\\&quot;number\\&quot;==typeof a.length&amp;&amp;\\&quot;undefined\\&quot;!=typeof a.splice&amp;&amp;\\&quot;undefined\\&quot;!=typeof a.propertyIsEnumerable&amp;&amp;!a.propertyIsEnumerable(\\&quot;splice\\&quot;))return\\&quot;array\\&quot;;if(\\&quot;[object Function]\\&quot;==c||\\&quot;undefined\\&quot;!=typeof a.call&amp;&amp;\\&quot;undefined\\&quot;!=typeof a.propertyIsEnumerable&amp;&amp;!a.propertyIsEnumerable(\\&quot;call\\&quot;))return\\&quot;function\\&quot;}else return\\&quot;null\\&quot;;else if(\\&quot;function\\&quot;==\\nb&amp;&amp;\\&quot;undefined\\&quot;==typeof a.call)return\\&quot;object\\&quot;;return b}function ca(a,b){function c(){}c.prototype=b.prototype;a.prototype=new c;a.prototype.constructor=a};var da=Array.prototype.indexOf?function(a,b){return Array.prototype.indexOf.call(a,b,void 0)}:function(a,b){if(\\&quot;string\\&quot;===typeof a)return\\&quot;string\\&quot;!==typeof b||1!=b.length?-1:a.indexOf(b,0);for(var c=0;c&lt;a.length;c++)if(c in a&amp;&amp;a[c]===b)return c;return-1},ea=Array.prototype.some?function(a,b){return Array.prototype.some.call(a,b,void 0)}:function(a,b){for(var c=a.length,e=\\&quot;string\\&quot;===typeof a?a.split(\\&quot;\\&quot;):a,d=0;d&lt;c;d++)if(d in e&amp;&amp;b.call(void 0,e[d],d,a))return!0;return!1},fa=Array.prototype.every?function(a,\\nb){return Array.prototype.every.call(a,b,void 0)}:function(a,b){for(var c=a.length,e=\\&quot;string\\&quot;===typeof a?a.split(\\&quot;\\&quot;):a,d=0;d&lt;c;d++)if(d in e&amp;&amp;!b.call(void 0,e[d],d,a))return!1;return!0};var ha={aliceblue:\\&quot;#f0f8ff\\&quot;,antiquewhite:\\&quot;#faebd7\\&quot;,aqua:\\&quot;#00ffff\\&quot;,aquamarine:\\&quot;#7fffd4\\&quot;,azure:\\&quot;#f0ffff\\&quot;,beige:\\&quot;#f5f5dc\\&quot;,bisque:\\&quot;#ffe4c4\\&quot;,black:\\&quot;#000000\\&quot;,blanchedalmond:\\&quot;#ffebcd\\&quot;,blue:\\&quot;#0000ff\\&quot;,blueviolet:\\&quot;#8a2be2\\&quot;,brown:\\&quot;#a52a2a\\&quot;,burlywood:\\&quot;#deb887\\&quot;,cadetblue:\\&quot;#5f9ea0\\&quot;,chartreuse:\\&quot;#7fff00\\&quot;,chocolate:\\&quot;#d2691e\\&quot;,coral:\\&quot;#ff7f50\\&quot;,cornflowerblue:\\&quot;#6495ed\\&quot;,cornsilk:\\&quot;#fff8dc\\&quot;,crimson:\\&quot;#dc143c\\&quot;,cyan:\\&quot;#00ffff\\&quot;,darkblue:\\&quot;#00008b\\&quot;,darkcyan:\\&quot;#008b8b\\&quot;,darkgoldenrod:\\&quot;#b8860b\\&quot;,darkgray:\\&quot;#a9a9a9\\&quot;,darkgreen:\\&quot;#006400\\&quot;,\\ndarkgrey:\\&quot;#a9a9a9\\&quot;,darkkhaki:\\&quot;#bdb76b\\&quot;,darkmagenta:\\&quot;#8b008b\\&quot;,darkolivegreen:\\&quot;#556b2f\\&quot;,darkorange:\\&quot;#ff8c00\\&quot;,darkorchid:\\&quot;#9932cc\\&quot;,darkred:\\&quot;#8b0000\\&quot;,darksalmon:\\&quot;#e9967a\\&quot;,darkseagreen:\\&quot;#8fbc8f\\&quot;,darkslateblue:\\&quot;#483d8b\\&quot;,darkslategray:\\&quot;#2f4f4f\\&quot;,darkslategrey:\\&quot;#2f4f4f\\&quot;,darkturquoise:\\&quot;#00ced1\\&quot;,darkviolet:\\&quot;#9400d3\\&quot;,deeppink:\\&quot;#ff1493\\&quot;,deepskyblue:\\&quot;#00bfff\\&quot;,dimgray:\\&quot;#696969\\&quot;,dimgrey:\\&quot;#696969\\&quot;,dodgerblue:\\&quot;#1e90ff\\&quot;,firebrick:\\&quot;#b22222\\&quot;,floralwhite:\\&quot;#fffaf0\\&quot;,forestgreen:\\&quot;#228b22\\&quot;,fuchsia:\\&quot;#ff00ff\\&quot;,gainsboro:\\&quot;#dcdcdc\\&quot;,\\nghostwhite:\\&quot;#f8f8ff\\&quot;,gold:\\&quot;#ffd700\\&quot;,goldenrod:\\&quot;#daa520\\&quot;,gray:\\&quot;#808080\\&quot;,green:\\&quot;#008000\\&quot;,greenyellow:\\&quot;#adff2f\\&quot;,grey:\\&quot;#808080\\&quot;,honeydew:\\&quot;#f0fff0\\&quot;,hotpink:\\&quot;#ff69b4\\&quot;,indianred:\\&quot;#cd5c5c\\&quot;,indigo:\\&quot;#4b0082\\&quot;,ivory:\\&quot;#fffff0\\&quot;,khaki:\\&quot;#f0e68c\\&quot;,lavender:\\&quot;#e6e6fa\\&quot;,lavenderblush:\\&quot;#fff0f5\\&quot;,lawngreen:\\&quot;#7cfc00\\&quot;,lemonchiffon:\\&quot;#fffacd\\&quot;,lightblue:\\&quot;#add8e6\\&quot;,lightcoral:\\&quot;#f08080\\&quot;,lightcyan:\\&quot;#e0ffff\\&quot;,lightgoldenrodyellow:\\&quot;#fafad2\\&quot;,lightgray:\\&quot;#d3d3d3\\&quot;,lightgreen:\\&quot;#90ee90\\&quot;,lightgrey:\\&quot;#d3d3d3\\&quot;,lightpink:\\&quot;#ffb6c1\\&quot;,lightsalmon:\\&quot;#ffa07a\\&quot;,\\nlightseagreen:\\&quot;#20b2aa\\&quot;,lightskyblue:\\&quot;#87cefa\\&quot;,lightslategray:\\&quot;#778899\\&quot;,lightslategrey:\\&quot;#778899\\&quot;,lightsteelblue:\\&quot;#b0c4de\\&quot;,lightyellow:\\&quot;#ffffe0\\&quot;,lime:\\&quot;#00ff00\\&quot;,limegreen:\\&quot;#32cd32\\&quot;,linen:\\&quot;#faf0e6\\&quot;,magenta:\\&quot;#ff00ff\\&quot;,maroon:\\&quot;#800000\\&quot;,mediumaquamarine:\\&quot;#66cdaa\\&quot;,mediumblue:\\&quot;#0000cd\\&quot;,mediumorchid:\\&quot;#ba55d3\\&quot;,mediumpurple:\\&quot;#9370db\\&quot;,mediumseagreen:\\&quot;#3cb371\\&quot;,mediumslateblue:\\&quot;#7b68ee\\&quot;,mediumspringgreen:\\&quot;#00fa9a\\&quot;,mediumturquoise:\\&quot;#48d1cc\\&quot;,mediumvioletred:\\&quot;#c71585\\&quot;,midnightblue:\\&quot;#191970\\&quot;,mintcream:\\&quot;#f5fffa\\&quot;,mistyrose:\\&quot;#ffe4e1\\&quot;,\\nmoccasin:\\&quot;#ffe4b5\\&quot;,navajowhite:\\&quot;#ffdead\\&quot;,navy:\\&quot;#000080\\&quot;,oldlace:\\&quot;#fdf5e6\\&quot;,olive:\\&quot;#808000\\&quot;,olivedrab:\\&quot;#6b8e23\\&quot;,orange:\\&quot;#ffa500\\&quot;,orangered:\\&quot;#ff4500\\&quot;,orchid:\\&quot;#da70d6\\&quot;,palegoldenrod:\\&quot;#eee8aa\\&quot;,palegreen:\\&quot;#98fb98\\&quot;,paleturquoise:\\&quot;#afeeee\\&quot;,palevioletred:\\&quot;#db7093\\&quot;,papayawhip:\\&quot;#ffefd5\\&quot;,peachpuff:\\&quot;#ffdab9\\&quot;,peru:\\&quot;#cd853f\\&quot;,pink:\\&quot;#ffc0cb\\&quot;,plum:\\&quot;#dda0dd\\&quot;,powderblue:\\&quot;#b0e0e6\\&quot;,purple:\\&quot;#800080\\&quot;,red:\\&quot;#ff0000\\&quot;,rosybrown:\\&quot;#bc8f8f\\&quot;,royalblue:\\&quot;#4169e1\\&quot;,saddlebrown:\\&quot;#8b4513\\&quot;,salmon:\\&quot;#fa8072\\&quot;,sandybrown:\\&quot;#f4a460\\&quot;,seagreen:\\&quot;#2e8b57\\&quot;,\\nseashell:\\&quot;#fff5ee\\&quot;,sienna:\\&quot;#a0522d\\&quot;,silver:\\&quot;#c0c0c0\\&quot;,skyblue:\\&quot;#87ceeb\\&quot;,slateblue:\\&quot;#6a5acd\\&quot;,slategray:\\&quot;#708090\\&quot;,slategrey:\\&quot;#708090\\&quot;,snow:\\&quot;#fffafa\\&quot;,springgreen:\\&quot;#00ff7f\\&quot;,steelblue:\\&quot;#4682b4\\&quot;,tan:\\&quot;#d2b48c\\&quot;,teal:\\&quot;#008080\\&quot;,thistle:\\&quot;#d8bfd8\\&quot;,tomato:\\&quot;#ff6347\\&quot;,turquoise:\\&quot;#40e0d0\\&quot;,violet:\\&quot;#ee82ee\\&quot;,wheat:\\&quot;#f5deb3\\&quot;,white:\\&quot;#ffffff\\&quot;,whitesmoke:\\&quot;#f5f5f5\\&quot;,yellow:\\&quot;#ffff00\\&quot;,yellowgreen:\\&quot;#9acd32\\&quot;};var ia=\\&quot;backgroundColor borderTopColor borderRightColor borderBottomColor borderLeftColor color outlineColor\\&quot;.split(\\&quot; \\&quot;),ja=/#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])/,ka=/^#(?:[0-9a-f]{3}){1,2}$/i,la=/^(?:rgba)?\\\\((\\\\d{1,3}),\\\\s?(\\\\d{1,3}),\\\\s?(\\\\d{1,3}),\\\\s?(0|1|0\\\\.\\\\d*)\\\\)$/i,ma=/^(?:rgb)?\\\\((0|[1-9]\\\\d{0,2}),\\\\s?(0|[1-9]\\\\d{0,2}),\\\\s?(0|[1-9]\\\\d{0,2})\\\\)$/i;function m(a,b){this.code=a;this.a=p[a]||r;this.message=b||\\&quot;\\&quot;;a=this.a.replace(/((?:^|\\\\s+)[a-z])/g,function(c){return c.toUpperCase().replace(/^[\\\\s\\\\xa0]+/g,\\&quot;\\&quot;)});b=a.length-5;if(0&gt;b||a.indexOf(\\&quot;Error\\&quot;,b)!=b)a+=\\&quot;Error\\&quot;;this.name=a;a=Error(this.message);a.name=this.name;this.stack=a.stack||\\&quot;\\&quot;}ca(m,Error);var r=\\&quot;unknown error\\&quot;,p={15:\\&quot;element not selectable\\&quot;,11:\\&quot;element not visible\\&quot;};p[31]=r;p[30]=r;p[24]=\\&quot;invalid cookie domain\\&quot;;p[29]=\\&quot;invalid element coordinates\\&quot;;p[12]=\\&quot;invalid element state\\&quot;;\\np[32]=\\&quot;invalid selector\\&quot;;p[51]=\\&quot;invalid selector\\&quot;;p[52]=\\&quot;invalid selector\\&quot;;p[17]=\\&quot;javascript error\\&quot;;p[405]=\\&quot;unsupported operation\\&quot;;p[34]=\\&quot;move target out of bounds\\&quot;;p[27]=\\&quot;no such alert\\&quot;;p[7]=\\&quot;no such element\\&quot;;p[8]=\\&quot;no such frame\\&quot;;p[23]=\\&quot;no such window\\&quot;;p[28]=\\&quot;script timeout\\&quot;;p[33]=\\&quot;session not created\\&quot;;p[10]=\\&quot;stale element reference\\&quot;;p[21]=\\&quot;timeout\\&quot;;p[25]=\\&quot;unable to set cookie\\&quot;;p[26]=\\&quot;unexpected alert open\\&quot;;p[13]=r;p[9]=\\&quot;unknown command\\&quot;;var u=String.prototype.trim?function(a){return a.trim()}:function(a){return/^[\\\\s\\\\xa0]*([\\\\s\\\\S]*?)[\\\\s\\\\xa0]*$/.exec(a)[1]};\\nfunction na(a,b){var c=0;a=u(String(a)).split(\\&quot;.\\&quot;);b=u(String(b)).split(\\&quot;.\\&quot;);for(var e=Math.max(a.length,b.length),d=0;0==c&amp;&amp;d&lt;e;d++){var f=a[d]||\\&quot;\\&quot;,h=b[d]||\\&quot;\\&quot;;do{f=/(\\\\d*)(\\\\D*)(.*)/.exec(f)||[\\&quot;\\&quot;,\\&quot;\\&quot;,\\&quot;\\&quot;,\\&quot;\\&quot;];h=/(\\\\d*)(\\\\D*)(.*)/.exec(h)||[\\&quot;\\&quot;,\\&quot;\\&quot;,\\&quot;\\&quot;,\\&quot;\\&quot;];if(0==f[0].length&amp;&amp;0==h[0].length)break;c=v(0==f[1].length?0:parseInt(f[1],10),0==h[1].length?0:parseInt(h[1],10))||v(0==f[2].length,0==h[2].length)||v(f[2],h[2]);f=f[3];h=h[3]}while(0==c)}return c}function v(a,b){return a&lt;b?-1:a&gt;b?1:0};var w;a:{var oa=g.navigator;if(oa){var sa=oa.userAgent;if(sa){w=sa;break a}}w=\\&quot;\\&quot;}function x(a){return-1!=w.indexOf(a)};function y(){return x(\\&quot;Firefox\\&quot;)||x(\\&quot;FxiOS\\&quot;)}function A(){return(x(\\&quot;Chrome\\&quot;)||x(\\&quot;CriOS\\&quot;))&amp;&amp;!x(\\&quot;Edge\\&quot;)};function ta(a){return String(a).replace(/\\\\-([a-z])/g,function(b,c){return c.toUpperCase()})};function B(){return x(\\&quot;iPhone\\&quot;)&amp;&amp;!x(\\&quot;iPod\\&quot;)&amp;&amp;!x(\\&quot;iPad\\&quot;)};function ua(a,b){var c=va;return Object.prototype.hasOwnProperty.call(c,a)?c[a]:c[a]=b(a)};var wa=x(\\&quot;Opera\\&quot;),C=x(\\&quot;Trident\\&quot;)||x(\\&quot;MSIE\\&quot;),xa=x(\\&quot;Edge\\&quot;),ya=x(\\&quot;Gecko\\&quot;)&amp;&amp;!(-1!=w.toLowerCase().indexOf(\\&quot;webkit\\&quot;)&amp;&amp;!x(\\&quot;Edge\\&quot;))&amp;&amp;!(x(\\&quot;Trident\\&quot;)||x(\\&quot;MSIE\\&quot;))&amp;&amp;!x(\\&quot;Edge\\&quot;),za=-1!=w.toLowerCase().indexOf(\\&quot;webkit\\&quot;)&amp;&amp;!x(\\&quot;Edge\\&quot;);function Aa(){var a=g.document;return a?a.documentMode:void 0}var E;\\na:{var F=\\&quot;\\&quot;,G=function(){var a=w;if(ya)return/rv:([^\\\\);]+)(\\\\)|;)/.exec(a);if(xa)return/Edge\\\\/([\\\\d\\\\.]+)/.exec(a);if(C)return/\\\\b(?:MSIE|rv)[: ]([^\\\\);]+)(\\\\)|;)/.exec(a);if(za)return/WebKit\\\\/(\\\\S+)/.exec(a);if(wa)return/(?:Version)[ \\\\/]?(\\\\S+)/.exec(a)}();G&amp;&amp;(F=G?G[1]:\\&quot;\\&quot;);if(C){var H=Aa();if(null!=H&amp;&amp;H&gt;parseFloat(F)){E=String(H);break a}}E=F}var va={};function Ba(a){return ua(a,function(){return 0&lt;=na(E,a)})}var I;I=g.document&amp;&amp;C?Aa():void 0;var Ca=y(),Da=B()||x(\\&quot;iPod\\&quot;),Ea=x(\\&quot;iPad\\&quot;),Fa=x(\\&quot;Android\\&quot;)&amp;&amp;!(A()||y()||x(\\&quot;Opera\\&quot;)||x(\\&quot;Silk\\&quot;)),Ga=A(),Ha=x(\\&quot;Safari\\&quot;)&amp;&amp;!(A()||x(\\&quot;Coast\\&quot;)||x(\\&quot;Opera\\&quot;)||x(\\&quot;Edge\\&quot;)||x(\\&quot;Edg/\\&quot;)||x(\\&quot;OPR\\&quot;)||y()||x(\\&quot;Silk\\&quot;)||x(\\&quot;Android\\&quot;))&amp;&amp;!(B()||x(\\&quot;iPad\\&quot;)||x(\\&quot;iPod\\&quot;));function J(a){return(a=a.exec(w))?a[1]:\\&quot;\\&quot;}(function(){if(Ca)return J(/Firefox\\\\/([0-9.]+)/);if(C||xa||wa)return E;if(Ga)return B()||x(\\&quot;iPad\\&quot;)||x(\\&quot;iPod\\&quot;)?J(/CriOS\\\\/([0-9.]+)/):J(/Chrome\\\\/([0-9.]+)/);if(Ha&amp;&amp;!(B()||x(\\&quot;iPad\\&quot;)||x(\\&quot;iPod\\&quot;)))return J(/Version\\\\/([0-9.]+)/);if(Da||Ea){var a=/Version\\\\/(\\\\S+).*Mobile\\\\/(\\\\S+)/.exec(w);if(a)return a[1]+\\&quot;.\\&quot;+a[2]}else if(Fa)return(a=J(/Android\\\\s+([0-9.]+)/))?a:J(/Version\\\\/([0-9.]+)/);return\\&quot;\\&quot;})();var K;if(K=C)K=!(9&lt;=Number(I));var Ia=K;function L(a,b){this.x=void 0!==a?a:0;this.y=void 0!==b?b:0}L.prototype.ceil=function(){this.x=Math.ceil(this.x);this.y=Math.ceil(this.y);return this};L.prototype.floor=function(){this.x=Math.floor(this.x);this.y=Math.floor(this.y);return this};L.prototype.round=function(){this.x=Math.round(this.x);this.y=Math.round(this.y);return this};function M(a,b){this.width=a;this.height=b}M.prototype.aspectRatio=function(){return this.width/this.height};M.prototype.ceil=function(){this.width=Math.ceil(this.width);this.height=Math.ceil(this.height);return this};M.prototype.floor=function(){this.width=Math.floor(this.width);this.height=Math.floor(this.height);return this};M.prototype.round=function(){this.width=Math.round(this.width);this.height=Math.round(this.height);return this};function N(a){return 9==a.nodeType?a:a.ownerDocument||a.document}function Ja(a,b){a&amp;&amp;(a=a.parentNode);for(var c=0;a;){if(b(a))return a;a=a.parentNode;c++}return null}function Ka(a){this.a=a||g.document||document};function P(a,b){b&amp;&amp;\\&quot;string\\&quot;!==typeof b&amp;&amp;(b=b.toString());return a instanceof HTMLFormElement?!!a&amp;&amp;1==a.nodeType&amp;&amp;(!b||\\&quot;FORM\\&quot;==b):!!a&amp;&amp;1==a.nodeType&amp;&amp;(!b||a.tagName.toUpperCase()==b)};function Q(a,b,c,e){this.f=a;this.a=b;this.b=c;this.c=e}Q.prototype.ceil=function(){this.f=Math.ceil(this.f);this.a=Math.ceil(this.a);this.b=Math.ceil(this.b);this.c=Math.ceil(this.c);return this};Q.prototype.floor=function(){this.f=Math.floor(this.f);this.a=Math.floor(this.a);this.b=Math.floor(this.b);this.c=Math.floor(this.c);return this};Q.prototype.round=function(){this.f=Math.round(this.f);this.a=Math.round(this.a);this.b=Math.round(this.b);this.c=Math.round(this.c);return this};function R(a,b,c,e){this.a=a;this.b=b;this.width=c;this.height=e}R.prototype.ceil=function(){this.a=Math.ceil(this.a);this.b=Math.ceil(this.b);this.width=Math.ceil(this.width);this.height=Math.ceil(this.height);return this};R.prototype.floor=function(){this.a=Math.floor(this.a);this.b=Math.floor(this.b);this.width=Math.floor(this.width);this.height=Math.floor(this.height);return this};\\nR.prototype.round=function(){this.a=Math.round(this.a);this.b=Math.round(this.b);this.width=Math.round(this.width);this.height=Math.round(this.height);return this};var La=\\&quot;function\\&quot;===typeof ShadowRoot;function S(a){for(a=a.parentNode;a&amp;&amp;1!=a.nodeType&amp;&amp;9!=a.nodeType&amp;&amp;11!=a.nodeType;)a=a.parentNode;return P(a)?a:null}\\nfunction T(a,b){b=ta(b);if(\\&quot;float\\&quot;==b||\\&quot;cssFloat\\&quot;==b||\\&quot;styleFloat\\&quot;==b)b=Ia?\\&quot;styleFloat\\&quot;:\\&quot;cssFloat\\&quot;;a:{var c=b;var e=N(a);if(e.defaultView&amp;&amp;e.defaultView.getComputedStyle&amp;&amp;(e=e.defaultView.getComputedStyle(a,null))){c=e[c]||e.getPropertyValue(c)||\\&quot;\\&quot;;break a}c=\\&quot;\\&quot;}a=c||Ma(a,b);if(null===a)a=null;else if(0&lt;=da(ia,b)){b:{var d=a.match(la);if(d&amp;&amp;(b=Number(d[1]),c=Number(d[2]),e=Number(d[3]),d=Number(d[4]),0&lt;=b&amp;&amp;255&gt;=b&amp;&amp;0&lt;=c&amp;&amp;255&gt;=c&amp;&amp;0&lt;=e&amp;&amp;255&gt;=e&amp;&amp;0&lt;=d&amp;&amp;1&gt;=d)){b=[b,c,e,d];break b}b=null}if(!b)b:{if(e=a.match(ma))if(b=\\nNumber(e[1]),c=Number(e[2]),e=Number(e[3]),0&lt;=b&amp;&amp;255&gt;=b&amp;&amp;0&lt;=c&amp;&amp;255&gt;=c&amp;&amp;0&lt;=e&amp;&amp;255&gt;=e){b=[b,c,e,1];break b}b=null}if(!b)b:{b=a.toLowerCase();c=ha[b.toLowerCase()];if(!c&amp;&amp;(c=\\&quot;#\\&quot;==b.charAt(0)?b:\\&quot;#\\&quot;+b,4==c.length&amp;&amp;(c=c.replace(ja,\\&quot;#$1$1$2$2$3$3\\&quot;)),!ka.test(c))){b=null;break b}b=[parseInt(c.substr(1,2),16),parseInt(c.substr(3,2),16),parseInt(c.substr(5,2),16),1]}a=b?\\&quot;rgba(\\&quot;+b.join(\\&quot;, \\&quot;)+\\&quot;)\\&quot;:a}return a}\\nfunction Ma(a,b){var c=a.currentStyle||a.style,e=c[b];void 0===e&amp;&amp;\\&quot;function\\&quot;==aa(c.getPropertyValue)&amp;&amp;(e=c.getPropertyValue(b));return\\&quot;inherit\\&quot;!=e?void 0!==e?e:null:(a=S(a))?Ma(a,b):null}\\nfunction U(a,b,c){function e(h){var n=V(h);return 0&lt;n.height&amp;&amp;0&lt;n.width?!0:P(h,\\&quot;PATH\\&quot;)&amp;&amp;(0&lt;n.height||0&lt;n.width)?(h=T(h,\\&quot;stroke-width\\&quot;),!!h&amp;&amp;0&lt;parseInt(h,10)):\\&quot;hidden\\&quot;!=T(h,\\&quot;overflow\\&quot;)&amp;&amp;ea(h.childNodes,function(D){return 3==D.nodeType||P(D)&amp;&amp;e(D)})}function d(h){return Na(h)==W&amp;&amp;fa(h.childNodes,function(n){return!P(n)||d(n)||!e(n)})}if(!P(a))throw Error(\\&quot;Argument to isShown must be of type Element\\&quot;);if(P(a,\\&quot;BODY\\&quot;))return!0;if(P(a,\\&quot;OPTION\\&quot;)||P(a,\\&quot;OPTGROUP\\&quot;))return a=Ja(a,function(h){return P(h,\\&quot;SELECT\\&quot;)}),\\n!!a&amp;&amp;U(a,!0,c);var f=Oa(a);if(f)return!!f.image&amp;&amp;0&lt;f.rect.width&amp;&amp;0&lt;f.rect.height&amp;&amp;U(f.image,b,c);if(P(a,\\&quot;INPUT\\&quot;)&amp;&amp;\\&quot;hidden\\&quot;==a.type.toLowerCase()||P(a,\\&quot;NOSCRIPT\\&quot;))return!1;f=T(a,\\&quot;visibility\\&quot;);return\\&quot;collapse\\&quot;!=f&amp;&amp;\\&quot;hidden\\&quot;!=f&amp;&amp;c(a)&amp;&amp;(b||0!=Pa(a))&amp;&amp;e(a)?!d(a):!1}var W=\\&quot;hidden\\&quot;;\\nfunction Na(a){function b(k){function l(ba){if(ba==h)return!0;var pa=T(ba,\\&quot;display\\&quot;);return 0==pa.lastIndexOf(\\&quot;inline\\&quot;,0)||\\&quot;contents\\&quot;==pa||\\&quot;absolute\\&quot;==qa&amp;&amp;\\&quot;static\\&quot;==T(ba,\\&quot;position\\&quot;)?!1:!0}var qa=T(k,\\&quot;position\\&quot;);if(\\&quot;fixed\\&quot;==qa)return ra=!0,k==h?null:h;for(k=S(k);k&amp;&amp;!l(k);)k=S(k);return k}function c(k){var l=k;if(\\&quot;visible\\&quot;==D)if(k==h&amp;&amp;n)l=n;else if(k==n)return{x:\\&quot;visible\\&quot;,y:\\&quot;visible\\&quot;};l={x:T(l,\\&quot;overflow-x\\&quot;),y:T(l,\\&quot;overflow-y\\&quot;)};k==h&amp;&amp;(l.x=\\&quot;visible\\&quot;==l.x?\\&quot;auto\\&quot;:l.x,l.y=\\&quot;visible\\&quot;==l.y?\\&quot;auto\\&quot;:l.y);return l}\\nfunction e(k){if(k==h){var l=(new Ka(f)).a;k=l.scrollingElement?l.scrollingElement:za||\\&quot;CSS1Compat\\&quot;!=l.compatMode?l.body||l.documentElement:l.documentElement;l=l.parentWindow||l.defaultView;k=C&amp;&amp;Ba(\\&quot;10\\&quot;)&amp;&amp;l.pageYOffset!=k.scrollTop?new L(k.scrollLeft,k.scrollTop):new L(l.pageXOffset||k.scrollLeft,l.pageYOffset||k.scrollTop)}else k=new L(k.scrollLeft,k.scrollTop);return k}var d=Qa(a),f=N(a),h=f.documentElement,n=f.body,D=T(h,\\&quot;overflow\\&quot;),ra;for(a=b(a);a;a=b(a)){var q=c(a);if(\\&quot;visible\\&quot;!=q.x||\\&quot;visible\\&quot;!=\\nq.y){var t=V(a);if(0==t.width||0==t.height)return W;var z=d.a&lt;t.a,O=d.b&lt;t.b;if(z&amp;&amp;\\&quot;hidden\\&quot;==q.x||O&amp;&amp;\\&quot;hidden\\&quot;==q.y)return W;if(z&amp;&amp;\\&quot;visible\\&quot;!=q.x||O&amp;&amp;\\&quot;visible\\&quot;!=q.y){z=e(a);O=d.b&lt;t.b-z.y;if(d.a&lt;t.a-z.x&amp;&amp;\\&quot;visible\\&quot;!=q.x||O&amp;&amp;\\&quot;visible\\&quot;!=q.x)return W;d=Na(a);return d==W?W:\\&quot;scroll\\&quot;}z=d.c&gt;=t.a+t.width;t=d.f&gt;=t.b+t.height;if(z&amp;&amp;\\&quot;hidden\\&quot;==q.x||t&amp;&amp;\\&quot;hidden\\&quot;==q.y)return W;if(z&amp;&amp;\\&quot;visible\\&quot;!=q.x||t&amp;&amp;\\&quot;visible\\&quot;!=q.y){if(ra&amp;&amp;(q=e(a),d.c&gt;=h.scrollWidth-q.x||d.a&gt;=h.scrollHeight-q.y))return W;d=Na(a);return d==W?W:\\&quot;scroll\\&quot;}}}return\\&quot;none\\&quot;}\\nfunction V(a){var b=Oa(a);if(b)return b.rect;if(P(a,\\&quot;HTML\\&quot;))return a=N(a),a=((a?a.parentWindow||a.defaultView:window)||window).document,a=\\&quot;CSS1Compat\\&quot;==a.compatMode?a.documentElement:a.body,a=new M(a.clientWidth,a.clientHeight),new R(0,0,a.width,a.height);try{var c=a.getBoundingClientRect()}catch(e){return new R(0,0,0,0)}b=new R(c.left,c.top,c.right-c.left,c.bottom-c.top);C&amp;&amp;a.ownerDocument.body&amp;&amp;(a=N(a),b.a-=a.documentElement.clientLeft+a.body.clientLeft,b.b-=a.documentElement.clientTop+a.body.clientTop);\\nreturn b}\\nfunction Oa(a){var b=P(a,\\&quot;MAP\\&quot;);if(!b&amp;&amp;!P(a,\\&quot;AREA\\&quot;))return null;var c=b?a:P(a.parentNode,\\&quot;MAP\\&quot;)?a.parentNode:null,e=null,d=null;if(c&amp;&amp;c.name){e=\&#x27;*[usemap=\\&quot;#\&#x27;+c.name+\&#x27;\\&quot;]\&#x27;;c=N(c);var f;if(f=\\&quot;function\\&quot;!=aa(c.querySelector)&amp;&amp;C&amp;&amp;(C?0&lt;=na(I,8):Ba(8))){f=c.querySelector;var h=typeof f;f=!(\\&quot;object\\&quot;==h&amp;&amp;null!=f||\\&quot;function\\&quot;==h)}if(f)throw Error(\\&quot;CSS selection is not supported\\&quot;);if(!e)throw new m(32,\\&quot;No selector specified\\&quot;);e=u(e);try{var n=c.querySelector(e)}catch(D){throw new m(32,\\&quot;An invalid or illegal selector was specified\\&quot;);}if(e=\\nn&amp;&amp;1==n.nodeType?n:null)d=V(e),b||\\&quot;default\\&quot;==a.shape.toLowerCase()||(a=Ra(a),b=Math.min(Math.max(a.a,0),d.width),n=Math.min(Math.max(a.b,0),d.height),d=new R(b+d.a,n+d.b,Math.min(a.width,d.width-b),Math.min(a.height,d.height-n)))}return{image:e,rect:d||new R(0,0,0,0)}}\\nfunction Ra(a){var b=a.shape.toLowerCase();a=a.coords.split(\\&quot;,\\&quot;);if(\\&quot;rect\\&quot;==b&amp;&amp;4==a.length){b=a[0];var c=a[1];return new R(b,c,a[2]-b,a[3]-c)}if(\\&quot;circle\\&quot;==b&amp;&amp;3==a.length)return b=a[2],new R(a[0]-b,a[1]-b,2*b,2*b);if(\\&quot;poly\\&quot;==b&amp;&amp;2&lt;a.length){b=a[0];c=a[1];for(var e=b,d=c,f=2;f+1&lt;a.length;f+=2)b=Math.min(b,a[f]),e=Math.max(e,a[f]),c=Math.min(c,a[f+1]),d=Math.max(d,a[f+1]);return new R(b,c,e-b,d-c)}return new R(0,0,0,0)}function Qa(a){a=V(a);return new Q(a.b,a.a+a.width,a.b+a.height,a.a)}\\nfunction Pa(a){if(Ia){if(\\&quot;relative\\&quot;==T(a,\\&quot;position\\&quot;))return 1;a=T(a,\\&quot;filter\\&quot;);return(a=a.match(/^alpha\\\\(opacity=(\\\\d*)\\\\)/)||a.match(/^progid:DXImageTransform.Microsoft.Alpha\\\\(Opacity=(\\\\d*)\\\\)/))?Number(a[1])/100:1}return Sa(a)}function Sa(a){var b=1,c=T(a,\\&quot;opacity\\&quot;);c&amp;&amp;(b=Number(c));(a=S(a))&amp;&amp;(b*=Sa(a));return b};function Ta(a,b){function c(e){if(P(e)&amp;&amp;\\&quot;none\\&quot;==T(e,\\&quot;display\\&quot;))return!1;var d;if((d=e.parentNode)&amp;&amp;d.shadowRoot&amp;&amp;void 0!==e.assignedSlot)d=e.assignedSlot?e.assignedSlot.parentNode:null;else if(e.getDestinationInsertionPoints){var f=e.getDestinationInsertionPoints();0&lt;f.length&amp;&amp;(d=f[f.length-1])}if(La&amp;&amp;d instanceof ShadowRoot){if(d.host.shadowRoot&amp;&amp;d.host.shadowRoot!==d)return!1;d=d.host}return!d||9!=d.nodeType&amp;&amp;11!=d.nodeType?d&amp;&amp;P(d,\\&quot;DETAILS\\&quot;)&amp;&amp;!d.open&amp;&amp;!P(e,\\&quot;SUMMARY\\&quot;)?!1:!!d&amp;&amp;c(d):!0}return U(a,\\n!!b,c)}var X=[\\&quot;_\\&quot;],Y=g;X[0]in Y||\\&quot;undefined\\&quot;==typeof Y.execScript||Y.execScript(\\&quot;var \\&quot;+X[0]);for(var Z;X.length&amp;&amp;(Z=X.shift());)X.length||void 0===Ta?Y[Z]&amp;&amp;Y[Z]!==Object.prototype[Z]?Y=Y[Z]:Y=Y[Z]={}:Y[Z]=Ta;; return this._.apply(null,arguments);}).apply({navigator:typeof window!=\&#x27;undefined\&#x27;?window.navigator:null,document:typeof window!=\&#x27;undefined\&#x27;?window.document:null}, arguments);}\\n).apply(null, arguments);&quot;, &quot;args&quot;: [{&quot;element-6066-11e4-a52e-4f735466cecf&quot;: &quot;f.AF8AA8B0F479939562D4492CCD0F468D.d.45670A2FB32A5875CF6ED0982645E5DC.e.93&quot;}]}&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 14
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+send: b&#x27;DELETE /session/25ed6229b582f8271f4e4e2b7556748c/window HTTP/1.1\r\nHost: localhost:61870\r\nAccept-Encoding: identity\r\nAccept: application/json\r\nContent-Type: application/json;charset=UTF-8\r\nUser-Agent: selenium/4.31.1 (python windows)\r\nConnection: keep-alive\r\n\r\n&#x27;
+reply: &#x27;HTTP/1.1 200 OK\r\n&#x27;
+header: Content-Length: 12
+header: Content-Type: application/json; charset=utf-8
+header: cache-control: no-cache
+<br/></div></td></tr></tbody></table></body></html>
