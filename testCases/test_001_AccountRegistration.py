@@ -13,6 +13,7 @@ class Test_001_AccountRegistration:
     baseURL = ReadConfig.getURL()
     logger = LogGen.loggen()
 
+    @pytest.mark.sanity
     @pytest.mark.regression
     def test_accResTesting(self, setup):
         self.logger.info("*** Test_001_AccountRegistration Started ***")
