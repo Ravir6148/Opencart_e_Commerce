@@ -1,0 +1,36 @@
+pipeline{
+    agent any
+    environment{
+        PYTHON_ENV = "selenium-ci"
+    }
+    stages{
+        stage('Checkout'){
+            steps{
+                https://github.com/Ravir6148/Opencart_e_Commerce.git
+            }
+        }
+        stage('Setup Python Environment'){
+            steps{
+                sh'''
+                    python -m venv venv
+                    source venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
+            }
+        }
+        stage('Run Selenium Tests'){
+            steps{
+                sh'''
+                    source venv/bin/activate
+                    pytest -v -s --capture=tee-sys .\testCases\ -m "sanity or regression"
+            }
+        }
+        stage('Archive Test Report'){
+            steps{
+                archiveArtifacts artifacts: 'playwright-report/**', fingerprint: true
+            }
+        }
+
+    }
+}
